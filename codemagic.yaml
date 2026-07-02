@@ -1,0 +1,39 @@
+workflows:
+  android-zip-build:
+    name: Android APK Build from ZIP
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      java: 17
+    triggering:
+      events:
+        - push
+    scripts:
+      - name: Unzip project files
+        script: |
+          echo "Locating and unzipping project..."
+          ZIP_FILE=$(ls *.zip | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Error: No ZIP file found in repository!"
+            exit 1
+          fi
+          unzip -q "$ZIP_FILE" -d project_extracted
+          
+          # Move inside the extracted directory to find gradle files
+          cd project_extracted
+          if [ -d */gradle ]; then
+            cd *
+          fi
+          
+          # Copy everything back to the root build directory
+          cp -R . ../../
+          cd ../../
+          rm -rf project_extracted
+      - name: Set executable permissions for Gradle
+        script: |
+          chmod +x gradlew
+      - name: Build Android Debug APK
+        script: |
+          ./gradlew assembleDebug
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
